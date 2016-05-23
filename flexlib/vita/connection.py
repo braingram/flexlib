@@ -26,16 +26,3 @@ class UDP(object):
 
     def __del__(self):
         self.sock.close()
-
-
-#def run_process(out_queue, ip=DEFAULT_IP, port=DEFAULT_PORT):
-#    conn = UDP(ip, port)
-#    while True:
-#        msg = conn.receive()
-#        out_queue.put(msg)
-#    del conn
-
-
-#class UDPProcess(object):
-#    def __init__(self, ip=DEFAULT_IP, port=DEFAULT_PORT):
-#        pass

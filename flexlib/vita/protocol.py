@@ -31,6 +31,13 @@ class VitaPacketHeader(object):
         self.packet_size = h & 0xFFFF  # packet size
         self.data = h
 
+    def to_json(self):
+        d = {}
+        for k in self.__dict__:
+            if k != 'data':
+                d[k] = self.__dict__[k]
+        return d
+
 
 class VitaPacketTrailer(object):
     def __init__(self, data):
@@ -60,6 +67,13 @@ class VitaPacketTrailer(object):
 
         self.data = t
 
+    def to_json(self):
+        d = {}
+        for k in self.__dict__:
+            if k != 'data':
+                d[k] = self.__dict__[k]
+        return d
+
 
 class VitaClassID(object):
     def __init__(self, data=None):
@@ -67,6 +81,7 @@ class VitaClassID(object):
             self.oui = None
             self.information_class_code = None
             self.packet_class_code = None
+            self.data = None
         else:
             #self.oui, self.information_class_code, self.packet_class_code = \
             #    struct.unpack('>IHH', data[:8])
@@ -74,6 +89,14 @@ class VitaClassID(object):
             self.oui = uint32(data[:4]) & 0x00FFFFFF
             self.information_class_code = uint16(data[4:6])
             self.packet_class_code = uint16(data[6:8])
+            self.data = data
+
+    def to_json(self):
+        d = {}
+        for k in self.__dict__:
+            if k != 'data':
+                d[k] = self.__dict__[k]
+        return d
 
 
 class VitaPacket(object):
@@ -117,6 +140,19 @@ class VitaPacket(object):
     def _parse_payload(self):
         raise NotImplementedError("abstract base class")
 
+    def to_json(self):
+        d = {
+            'header': self.header.to_json(),
+            'stream_id': self.stream_id,
+            'class_id': self.class_id.to_json(),
+            'tsi': self.tsi,
+            'tsf': self.tsf}
+        if self.trailer is None:
+            d['trailer'] = None
+        else:
+            d['trailer'] = self.trailer.to_json()
+        return d
+
 
 class DiscoveryPacket(VitaPacket):
     def _parse_payload(self):
@@ -127,6 +163,11 @@ class DiscoveryPacket(VitaPacket):
         self.payload = self.data[
             self._index: self._index + payload_bytes].decode('utf-8')
         self._index += payload_bytes
+
+    def to_json(self):
+        d = VitaPacket.to_json(self)
+        d['payload'] = self.payload
+        return d
 
 
 class FFTPacket(VitaPacket):
@@ -140,6 +181,17 @@ class FFTPacket(VitaPacket):
         # TODO use numpy.fromstring if endianness matches
         self.payload = [uint16(self._next(2)) for _ in xrange(self.num_bins)]
         self.bins = self.payload
+
+    def to_json(self):
+        d = VitaPacket.to_json(self)
+        d.update({
+            'start_bin_index': self.start_bin_index,
+            'num_bins': self.num_bins,
+            'bin_size': self.bin_size,
+            'frame_index': self.frame_index,
+            'bins': self.bins,
+        })
+        return d
 
 
 class MeterPacket(VitaPacket):
@@ -157,6 +209,11 @@ class MeterPacket(VitaPacket):
             self.meters.append((
                 uint16(self._next(2)),
                 int16(self._next(2))))
+
+    def to_json(self):
+        d = VitaPacket.to_json(self)
+        d['meters'] = self.meters
+        return d
 
 
 class WaterfallPacket(VitaPacket):
@@ -179,6 +236,20 @@ class WaterfallPacket(VitaPacket):
                     payload_bytes, self.n * 2))
         self.payload = [uint16(self._next(2)) for _ in xrange(self.n)]
 
+    def to_json(self):
+        d = VitaPacket.to_json(self)
+        d.update({
+            'first_pixel_frequency': self.first_pixel_frequency,
+            'bin_bandwidth': self.bin_bandwidth,
+            'line_duration_ms': self.line_duration_ms,
+            'width': self.width,
+            'height': self.height,
+            'timecode': self.timecode,
+            'auto_black_level': self.auto_black_level,
+            'payload': self.payload,
+        })
+        return d
+
 
 class OpusPacket(VitaPacket):
     def _parse_payload(self):
@@ -187,6 +258,11 @@ class OpusPacket(VitaPacket):
         if self.header.t:
             payload_bytes -= 4
         self.payload = self._next(payload_bytes)
+
+    def to_json(self):
+        d = VitaPacket.to_json(self)
+        d['payload'] = self.payload
+        return d
 
 
 class IFPacket(VitaPacket):
@@ -211,6 +287,11 @@ class IFPacket(VitaPacket):
             self.paylaod = [
                 float32(self._next(4)) * self.ONE_OVER_ZERO_DBFS
                 for _ in xrange(self.n)]
+
+    def to_json(self):
+        d = VitaPacket.to_json(self)
+        d['payload'] = self.payload
+        return d
 
 
 packet_types = {

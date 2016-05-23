@@ -25,7 +25,7 @@ class CommandBuilder(object):
         self.sequence_number += 1
         if self.sequence_number > MAX_SEQUENCE_NUMBER:
             self.sequence_number -= MAX_SEQUENCE_NUMBER
-        return s.encode('utf-8')
+        return n, s.encode('utf-8')
 
 
 class Response(object):
