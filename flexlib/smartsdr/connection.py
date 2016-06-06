@@ -22,7 +22,7 @@ class TCP(object):
 
     def receive(self, timeout=None, buffer_size=1024):
         if timeout is not None:
-            r, _, _ = select.select([self.sock], [], [], timeout=timeout)
+            r, _, _ = select.select([self.sock], [], [], timeout)
             if len(r) != 1:
                 return None
         r = self.sock.receive(buffer_size)

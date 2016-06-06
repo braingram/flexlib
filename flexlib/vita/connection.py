@@ -19,7 +19,7 @@ class UDP(object):
     def receive(self, timeout=None, buffer_size=65535):
         """Returns (data, addr)"""
         if timeout is not None:
-            r, _, _ = select.select([self.sock], [], [], timeout=timeout)
+            r, _, _ = select.select([self.sock], [], [], timeout)
             if len(r) != 1:
                 return None
         return self.sock.recvfrom(buffer_size)

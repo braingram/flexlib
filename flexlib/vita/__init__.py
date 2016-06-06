@@ -14,8 +14,8 @@ class Vita(object):
             del self.conn
 
     def receive(self, timeout=None):
-        data = self.conn.receive(timeout=timeout)
-        if data is None:
+        data_addr = self.conn.receive(timeout=timeout)
+        if data_addr is None:
             return None
-        packet = protocol.parse_packet(data)
+        packet = protocol.parse_packet(data_addr[0])
         return packet
