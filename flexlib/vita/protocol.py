@@ -20,21 +20,47 @@ class VitaPacketError(Exception):
 
 class VitaPacketHeader(object):
     def __init__(self, data):
+        self.data = data
         h = uint32(data[:4])
         # TODO do this with struct if it's faster '>BBH'
         self.packet_type = (h >> 28)  # packet type
         self.c = ((h & 0x08000000) != 0)  # class ID present
         self.t = ((h & 0x04000000) != 0)  # trailer present
-        self.tsi = (h >> 22) & 0x03  # timestamp integer
-        self.tsf = (h >> 20) & 0x03  # timestamp fractional
+        self.has_tsi = (h >> 22) & 0x03  # timestamp integer
+        self.has_tsf = (h >> 20) & 0x03  # timestamp fractional
         self.count = (h >> 16) & 0xF  # rolling 4-bit counter
         self.packet_size = h & 0xFFFF  # packet size
-        self.data = h
+        self.header_data = h
+
+        self._index = 4
+        if (self.packet_type in (
+                const.PT_IF_STREAM, const.PT_EXT_STREAM)):
+            self.stream_id = uint32(self._next(4))
+        else:
+            self.stream_id = None
+        if self.c:
+            self.class_id = VitaClassID(self._next(8))
+        else:
+            self.class_id = VitaClassID()
+        if self.has_tsi != const.TSI_NONE:
+            self.tsi = uint32(self._next(4))
+        else:
+            self.tsi = None
+        if self.has_tsf != const.TSF_NONE:
+            self.tsf = uint64(self._next(8))
+        else:
+            self.tsf = None
+        self.length = self._index
+
+    def _next(self, n):
+        s = self.data[self._index:self._index+n]
+        self._index += n
+        return s
 
     def to_json(self):
         d = {}
         for k in self.__dict__:
-            if k != 'data':
+            if k not in ('head_data', 'data'):
                 d[k] = self.__dict__[k]
         return d
 
@@ -106,7 +132,8 @@ class VitaPacket(object):
             self.header = VitaPacketHeader(data)
         else:
             self.header = header
-        self._index = 4
+        self._index = self.header.length
+        """
         if (self.header.packet_type in (
                 const.PT_IF_STREAM, const.PT_EXT_STREAM)):
             self.stream_id = uint32(self._next(4))
@@ -125,7 +152,9 @@ class VitaPacket(object):
         else:
             self.tsf = None
         # remaining data is payload and trailer
-        if self.class_id.oui == const.FLEX_OUI:  # only parse FLEX packets
+        """
+        # only parse FLEX packets
+        if self.header.class_id.oui == const.FLEX_OUI:
             self._parse_payload()
         if self.header.t:
             self.trailer = VitaPacketTrailer(data)
@@ -141,12 +170,7 @@ class VitaPacket(object):
         raise NotImplementedError("abstract base class")
 
     def to_json(self):
-        d = {
-            'header': self.header.to_json(),
-            'stream_id': self.stream_id,
-            'class_id': self.class_id.to_json(),
-            'tsi': self.tsi,
-            'tsf': self.tsf}
+        d = {'header': self.header.to_json()}
         if self.trailer is None:
             d['trailer'] = None
         else:
@@ -156,7 +180,8 @@ class VitaPacket(object):
 
 class DiscoveryPacket(VitaPacket):
     def _parse_payload(self):
-        payload_bytes = self.header.packet_size - self._index
+        #payload_bytes = self.header.packet_size - self._index
+        payload_bytes = (self.header.packet_size * 4) - self._index
         if self.header.t:
             payload_bytes -= 4
         # decode UTF8
@@ -196,7 +221,8 @@ class FFTPacket(VitaPacket):
 
 class MeterPacket(VitaPacket):
     def _parse_payload(self):
-        payload_bytes = self.header.packet_size - self._index
+        #payload_bytes = self.header.packet_size - self._index
+        payload_bytes = (self.header.packet_size * 4) - self._index
         if self.header.t:
             payload_bytes -= 4
         if payload_bytes % 4 != 0:
@@ -225,7 +251,8 @@ class WaterfallPacket(VitaPacket):
         self.height = uint16(self._next(2))
         self.timecode = uint32(self._next(4))
         self.auto_black_level = uint32(self._next(4))
-        payload_bytes = self.header.packet_size - self._index
+        #payload_bytes = self.header.packet_size - self._index
+        payload_bytes = (self.header.packet_size * 4) - self._index
         if self.header.t:
             payload_bytes -= 4
         self.n = self.width * self.height
@@ -253,7 +280,8 @@ class WaterfallPacket(VitaPacket):
 
 class OpusPacket(VitaPacket):
     def _parse_payload(self):
-        payload_bytes = self.header.packet_size - self._index
+        #payload_bytes = self.header.packet_size - self._index
+        payload_bytes = (self.header.packet_size * 4) - self._index
         # Vita/VitaOpusPacket.cs:118 not sure why 28
         if self.header.t:
             payload_bytes -= 4
@@ -270,7 +298,8 @@ class IFPacket(VitaPacket):
     ONE_OVER_ZERO_DBFS = 1.0 / (2 ** 15.)
 
     def _parse_payload(self):
-        payload_bytes = self.header.packet_size - self._index
+        #payload_bytes = self.header.packet_size - self._index
+        payload_bytes = (self.header.packet_size * 4) - self._index
         if self.header.t:
             payload_bytes -= 4
         self.n = payload_bytes / 4
@@ -279,12 +308,12 @@ class IFPacket(VitaPacket):
                 "Invalid packet size, payload_bytes[%s] not a multiple of 4"
                 % (payload_bytes, ))
         # if IF_NARROW, swap bytes
-        if (self.class_id.packet_class_code & 0x200) == 0:
+        if (self.header.class_id.packet_class_code & 0x200) == 0:
             self.payload = [
                 int32(self._next(4)) * self.ONE_OVER_ZERO_DBFS
                 for _ in xrange(self.n)]
         else:
-            self.paylaod = [
+            self.payload = [
                 float32(self._next(4)) * self.ONE_OVER_ZERO_DBFS
                 for _ in xrange(self.n)]
 
@@ -309,7 +338,7 @@ packet_types = {
 
 def parse_packet(data):
     header = VitaPacketHeader(data)
-    pclass = packet_types.get(header.packet_type, None)
+    pclass = packet_types.get(header.class_id.packet_class_code, None)
     if pclass is None:
         raise VitaPacketError(
             "VitaPacket found with unknown type: %s" % (header.packet_type, ))
