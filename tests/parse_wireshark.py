@@ -31,5 +31,3 @@ with open(fn, 'r') as fp:
                         flp = flexlib.vita.protocol.parse_packet(
                             p2.payload.original)
                         packets.append(flp)
-                        if len(packets) > 10:
-                            break
