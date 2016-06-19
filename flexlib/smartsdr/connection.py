@@ -25,7 +25,7 @@ class TCP(object):
             r, _, _ = select.select([self.sock], [], [], timeout)
             if len(r) != 1:
                 return None
-        r = self.sock.receive(buffer_size)
+        r = self.sock.recv(buffer_size)
         self._receive_buffer += r.decode('utf-8')
         # look for end of message '\n'
         if '\n' not in self._receive_buffer:

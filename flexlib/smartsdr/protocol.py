@@ -35,7 +35,7 @@ class Response(object):
 
 class Reply(Response):
     def __init__(self, msg):
-        tokens = self.msg.strip().split('|')
+        tokens = msg.strip().split('|')
         if len(tokens) < 3:
             raise ProtocolError("Invalid Reply tokens %s" % len(tokens))
         self.sequence_number = tokens[0][1:]
@@ -53,7 +53,7 @@ class Reply(Response):
 
 class Status(Response):
     def __init__(self, msg):
-        tokens = self.msg.strip().split('|')
+        tokens = msg.strip().split('|')
         if len(tokens) != 2:
             raise ProtocolError("Invalid Status tokens %s" % len(tokens))
         self.handle = tokens[0][1:]
@@ -73,7 +73,7 @@ class Version(Response):
 
 class Message(Response):
     def __init__(self, msg):
-        tokens = self.msg.strip().split('|')
+        tokens = msg.strip().split('|')
         if len(tokens) != 2:
             raise ProtocolError("Invalid Message tokens %s" % len(tokens))
         try:
