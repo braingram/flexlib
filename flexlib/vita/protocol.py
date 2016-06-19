@@ -60,7 +60,9 @@ class VitaPacketHeader(object):
     def to_json(self):
         d = {}
         for k in self.__dict__:
-            if k == 'class_id':
+            if k in ('_index', ):
+                continue
+            elif k == 'class_id':
                 d[k] = self.__dict__[k].to_json()
             elif k not in ('head_data', 'data'):
                 d[k] = self.__dict__[k]
@@ -330,7 +332,7 @@ packet_types = {
     const.VF_DISCOVERY: DiscoveryPacket,
     # signal specs
     const.VF_METER: MeterPacket,
-    #
+    const.VF_FFT: FFTPacket,
     const.VF_WATERFALL: WaterfallPacket,
     const.VF_OPUS: OpusPacket,
     const.VF_IF_NARROW: IFPacket,
