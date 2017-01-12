@@ -11,7 +11,7 @@ int32 = lambda d: struct.unpack('>i', d)[0]
 uint64 = lambda d: struct.unpack('>Q', d)[0]
 int64 = lambda d: struct.unpack('>q', d)[0]
 
-float32 = lambda d: struct.unpack('>f', d)[0]
+float32 = lambda d: struct.unpack('<f', d)[0]
 
 
 class VitaPacketError(Exception):
@@ -71,7 +71,7 @@ class VitaPacketHeader(object):
 
 class VitaPacketTrailer(object):
     def __init__(self, data):
-        t = uint32(data[-1])
+        t = uint32(data[-4:])
         # TODO perhaps only parse these when needed as properties
         # TODO if faster, unpack low bits of t, shift and repeat
         self.calibrated_time_enable = (t & 0x80000000) != 0
